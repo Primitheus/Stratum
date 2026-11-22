@@ -33,7 +33,7 @@ pub(super) fn run_event_loop(mut game: Game<'_>) -> Result<()> {
         return result;
     }
     let mut split = split::Split::new(game);
-    let result = EventLoop::new()?.run_app(&mut split);
+    let result = crate::run_window_app(crate::window_event_loop()?, &mut split);
     game = split.host;
     narrator::stop();
     leave_fullscreen_after(&result, &mut game.settings);
@@ -91,7 +91,23 @@ impl Loading {
             || self.ui_at.is_none_or(|at| at.elapsed() >= TITLE_FRAME_WAIT)
     }
     pub(super) fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        horizon_client_render::android_lifecycle::STATE.set_surface(true);
         if self.window.is_some() {
+            #[cfg(target_os = "android")]
+            {
+                if let Some(r) = &mut self.renderer {
+                    if let Err(e) = r.recreate_surface() {
+                        self.error = Some(e);
+                        event_loop.exit();
+                        return;
+                    }
+                }
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+                log::info!("Stratum lifecycle: loading surface restored");
+            }
             return;
         }
         // The Window constructor: created fullscreen when options.txt or --fullscreen says so.
@@ -194,6 +210,20 @@ impl Loading {
         id: WindowId,
         mut event: WindowEvent,
     ) {
+        #[cfg(target_os = "android")]
+        {
+            if let WindowEvent::Focused(focused) = &event {
+                horizon_client_render::android_lifecycle::STATE.set_focused(*focused);
+            }
+            if !horizon_client_render::android_lifecycle::STATE.has_surface()
+                && matches!(
+                    event,
+                    WindowEvent::RedrawRequested | WindowEvent::Resized(_)
+                )
+            {
+                return;
+            }
+        }
         if self.window.as_ref().is_none_or(|w| w.id() != id) {
             return;
         }
@@ -437,6 +467,20 @@ impl ApplicationHandler for App {
             App::Ready(game) => game.resumed(event_loop),
         }
     }
+    #[cfg(target_os = "android")]
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        match self {
+            App::Loading(loading) => {
+                horizon_client_render::android_lifecycle::STATE.set_surface(false);
+                horizon_client_render::android_lifecycle::STATE.set_focused(false);
+                if let Some(r) = &mut loading.renderer {
+                    r.suspend_surface();
+                }
+                event_loop.set_control_flow(ControlFlow::Wait);
+            }
+            App::Ready(game) => game.suspended(event_loop),
+        }
+    }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         match self {
             App::Loading(loading) => loading.window_event(event_loop, id, event),
@@ -449,6 +493,11 @@ impl ApplicationHandler for App {
         }
     }
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        if !horizon_client_render::android_lifecycle::STATE.has_surface() {
+            event_loop.set_control_flow(ControlFlow::Wait);
+            return;
+        }
         enum Step {
             Waiting,
             Ready(Box<split::Split<'static>>),
@@ -574,4 +623,10 @@ pub(super) fn unclean_start_recovery(settings: &mut Settings) -> bool {
         settings.file.fullscreen_resolution = None;
     }
     unclean
+}
+
+impl horizon_client_input::touch::RawTouch for App {
+    fn raw_touch(&self) -> bool {
+        matches!(self, Self::Ready(_))
+    }
 }

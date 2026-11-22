@@ -43,3 +43,18 @@
 
 # Visual Studio editor state.
 .vs/
+
+# Stratum local state
+/.local/
+/target/
+/.venv/
+**/__pycache__/
+*.py[cod]
+*.jar
+*.class
+*.keystore
+*.jks
+.env
+.env.*
+/saves/
+/logs/

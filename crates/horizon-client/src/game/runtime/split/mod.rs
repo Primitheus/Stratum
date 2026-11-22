@@ -598,6 +598,11 @@ impl<'a> Split<'a> {
 }
 
 impl ApplicationHandler for Split<'_> {
+    #[cfg(target_os = "android")]
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        self.host.suspended(event_loop);
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.host.resumed(event_loop);
         if !self.surfaces.is_empty() {
@@ -733,6 +738,11 @@ impl ApplicationHandler for Split<'_> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        if !horizon_client_render::android_lifecycle::STATE.has_surface() {
+            event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+            return;
+        }
         let on = self.host.settings.extras.splitscreen || self.forced;
         // Only splitscreen places windows on monitors. Listing them is a round trip to the
         // window server (macOS: 0.1-0.3 ms, more on a busy machine), so not every frame.
@@ -938,5 +948,11 @@ impl Game<'_> {
         }
         self.capture(false);
         self.keyboard_mouse = false;
+    }
+}
+
+impl horizon_client_input::touch::RawTouch for Split<'_> {
+    fn raw_touch(&self) -> bool {
+        true
     }
 }

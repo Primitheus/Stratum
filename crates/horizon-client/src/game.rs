@@ -201,7 +201,7 @@ use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
     event::{DeviceEvent, DeviceId, ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow},
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorGrabMode, Window, WindowId},
 };
@@ -1076,6 +1076,10 @@ struct Game<'a> {
     /// Keys whose first press a mod cancelled (`key_mapping_pre`): their repeats are never held.
     rejected_keys: HashSet<KeyCode>,
     physical_buttons: HashSet<MouseButton>,
+    touch_controls: horizon_client_input::touch_controls::Controls,
+    touch_pointer: horizon_client_input::touch::Pointer,
+    touch_playing: bool,
+    touch_ui: touch_settings::TouchUi,
     drag_button: Option<MouseButton>,
     /// Control + left click as a right click (macOS).
     right_click_emulation: horizon_client_input::mouse::RightClickEmulation,
@@ -4656,6 +4660,8 @@ impl Game<'_> {
         self.frame_graph
             .draw(self.settings.horizon.overlay, &mut batch, &self.gui.atlas);
         self.draw_pad_over_hud(&mut batch);
+        #[cfg(target_os = "android")]
+        self.draw_touch_controls(&mut batch, size);
         batch
     }
     fn hud_layers(&mut self, size: [u32; 2]) -> HudBatch {
@@ -10506,6 +10512,10 @@ impl<'a> Game<'a> {
             physical_keys: HashSet::new(),
             rejected_keys: HashSet::new(),
             physical_buttons: HashSet::new(),
+            touch_controls: Default::default(),
+            touch_pointer: Default::default(),
+            touch_playing: false,
+            touch_ui: Default::default(),
             drag_button: None,
             right_click_emulation: Default::default(),
             left: false,

@@ -119,7 +119,7 @@ pub fn check_current() -> Result<(), &'static str> {
 }
 
 fn inspect_current() -> Result<(), &'static str> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
         // SAFETY: pthread_self is live and attr is writable. Destroy only on success.
@@ -154,9 +154,19 @@ fn inspect_current() -> Result<(), &'static str> {
             return Err("GuestStackUnavailable: calling thread needs 136 MiB of stack");
         }
     }
-    #[cfg(not(any(target_os = "linux", target_vendor = "apple", windows)))]
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_vendor = "apple",
+        windows
+    )))]
     return Err("GuestStackUnavailable: stack inspection is unsupported on this platform");
-    #[cfg(any(target_os = "linux", target_vendor = "apple", windows))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_vendor = "apple",
+        windows
+    ))]
     Ok(())
 }
 
@@ -217,6 +227,16 @@ fn audited_guest_workers_use_the_stack_policy() {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "android")]
+    #[test]
+    fn native_activity_default_thread_has_required_stack() {
+        // Run this Android test process with wrap.sh's RUST_MIN_STACK. The
+        // NativeActivity glue uses std::thread::spawn, rather than our builder.
+        std::thread::spawn(|| super::check_current().unwrap())
+            .join()
+            .unwrap();
+    }
+
     #[test]
     fn small_worker_refuses_guest_entry() {
         std::thread::Builder::new()

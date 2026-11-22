@@ -1,6 +1,7 @@
 [workspace]
-exclude = ["crates/horizon-telemetry-server", "launcher", "crates/horizon-mod-registry", "third_party/wgpu-hal", "third_party/naga", "third_party/libmimalloc-sys", "tools/fixtures/paper-trace-mod"]
+exclude = ["third_party/winit", "crates/horizon-telemetry-server", "launcher", "crates/horizon-mod-registry", "third_party/wgpu-hal", "third_party/naga", "third_party/libmimalloc-sys", "tools/fixtures/paper-trace-mod"]
 members = [
+    "crates/stratum-android",
     "crates/horizon-guest-stack",
     "crates/horizon-mod-vocab",
     "crates/horizon-game-discovery",
@@ -109,6 +110,8 @@ large_enum_variant = "allow"
 # hung the GPU until the kernel's Xid 109 timeout lost the device.
 # Drop this and the folder once a wgpu release has these fixes.
 [patch.crates-io]
+cpal = { path = "third_party/cpal" }
+winit = { path = "third_party/winit" }
 wgpu-hal = { path = "third_party/wgpu-hal" }
 # naga 30.0.1, with the fixes to its GLSL frontend that shader packs need (THIRD_PARTY_NOTICES.md).
 naga = { path = "third_party/naga" }

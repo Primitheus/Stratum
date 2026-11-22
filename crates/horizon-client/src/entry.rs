@@ -24,11 +24,23 @@ impl Startup {
 /// and resource marker metadata only: no logging, account loading, mods or worker threads.
 /// Account IO, cwd changes and command registration remain in Options::read, after leases.
 pub fn prepare() -> Startup {
-    horizon_mod_package::holder::enter();
-    let result: crate::Result<_> = (|| {
+    prepare_using(|| {
         let mut command = std::process::Command::new(std::env::current_exe()?);
         command.args(std::env::args_os().skip(1));
-        let launch = LaunchArguments::for_command(&command)?;
+        LaunchArguments::for_command(&command)
+    })
+}
+
+/// Prepare an embedded host's launch without interpreting the host process's argv.
+/// The command is a launch description, never spawned.
+pub fn prepare_command(command: &std::process::Command) -> Startup {
+    prepare_using(|| LaunchArguments::for_command(command))
+}
+
+fn prepare_using(launch: impl FnOnce() -> std::io::Result<LaunchArguments>) -> Startup {
+    horizon_mod_package::holder::enter();
+    let result: crate::Result<_> = (|| {
+        let launch = launch()?;
         let options = game::Options::validate(launch.clone())?;
         Ok((launch, options))
     })();
@@ -236,6 +248,9 @@ pub fn start<G>(
             eprintln!("Press Enter to close.");
             let _ = std::io::stdin().read_line(&mut String::new());
         }
+        // NativeActivity owns Android's process. Return through the host after
+        // reporting the error; libc exit tears down ART under live JVM threads.
+        #[cfg(not(target_os = "android"))]
         std::process::exit(if usage {
             game::exit_code::USAGE
         } else {

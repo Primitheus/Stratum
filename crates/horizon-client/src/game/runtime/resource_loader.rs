@@ -295,7 +295,7 @@ pub(super) fn run_loading(
         error: None,
     };
     let mut app = App::Loading(Box::new(loading));
-    let result = EventLoop::new()?.run_app(&mut app);
+    let result = crate::run_window_app(crate::window_event_loop()?, &mut app);
     narrator::stop();
     match &mut app {
         // Ready: splitscreen around P1's game.

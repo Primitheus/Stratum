@@ -32,5 +32,14 @@ pub fn main() {
     horizon_mod_host::main_with(Vec::new(), &[], &[], startup);
 }
 
+/// Start from an embedded platform host's launch description. This retains the
+/// normal validation, leases, and mod host; the command itself is never executed.
+pub fn main_with_command(command: &std::process::Command) {
+    horizon_guest_stack::prepare_main();
+    let startup = horizon_client::entry::prepare_command(command);
+    std::hint::black_box(&horizon_mod_package::holder::CAPABILITY);
+    horizon_mod_host::main_with(Vec::new(), &[], &[], startup);
+}
+
 /// Establish the executable main thread stack before initialization.
 pub use horizon_guest_stack::prepare_main as prepare_main_stack;

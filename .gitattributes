@@ -13,3 +13,6 @@ crates/horizon-client/assets/horizon/lang/*.json merge=horizon-lang
 
 # The carried horizon-mixins patch is hashed into its tool's release tag: the same bytes on every OS.
 tools/mixins/*.patch text eol=lf
+
+# Android executes this development launcher directly from the APK.
+packaging/android/wrap.sh text eol=lf

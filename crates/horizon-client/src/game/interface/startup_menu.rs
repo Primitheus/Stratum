@@ -418,6 +418,9 @@ pub(super) fn spawn_loader(
     let handle = horizon_guest_stack::builder()
         .name("resource-loader".into())
         .spawn(move || {
+            // Network/texture preparation stays off the Android event thread.
+            #[cfg(target_os = "android")]
+            crate::bedrock_touch::fetch_logged(&vanilla_root);
             let mut pack_error = None;
             let root =
                 packs::startup_root(&vanilla_root, &settings.resource_packs, &[], &mod_sources)

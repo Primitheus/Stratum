@@ -205,6 +205,13 @@ mod hardware {
 
     impl Pads {
         pub(super) fn read(&mut self) -> PadState {
+            #[cfg(target_os = "android")]
+            {
+                let (device, state) = crate::android::controller_state();
+                self.device = device;
+                return state;
+            }
+            #[cfg(not(target_os = "android"))]
             PadState::default()
         }
         pub(in crate::game) fn release_hardware(&mut self) {}
@@ -262,6 +269,9 @@ mod hardware {
         pub(in crate::game) fn pad_close_output(&mut self) {}
         pub(super) fn pad_vibrate(&mut self, _: Rumble, _: Pulse) {}
         pub(super) fn pad_devices_status(&self) -> Value {
+            #[cfg(target_os = "android")]
+            return json!({ "backend": "android", "controllers": self.pad.device.iter().map(|d|json!({"name":d.name,"vendor":d.vendor,"product":d.product})).collect::<Vec<_>>() });
+            #[cfg(not(target_os = "android"))]
             json!({ "backend": false, "controllers": [] })
         }
     }

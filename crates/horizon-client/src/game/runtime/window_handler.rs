@@ -24,6 +24,7 @@ fn is_input(event: &WindowEvent) -> bool {
             | WindowEvent::MouseInput { .. }
             | WindowEvent::MouseWheel { .. }
             | WindowEvent::CursorMoved { .. }
+            | WindowEvent::Touch(_)
             | WindowEvent::Ime(_)
     )
 }
@@ -118,6 +119,7 @@ impl Game<'_> {
             WindowEvent::KeyboardInput { .. }
                 | WindowEvent::MouseInput { .. }
                 | WindowEvent::MouseWheel { .. }
+                | WindowEvent::Touch(_)
                 | WindowEvent::Ime(_)
         );
         self.with_user_input(input, |game| {
@@ -155,6 +157,24 @@ impl Game<'_> {
             Unclaimed::Claims => self.claim_window(event_loop),
             Unclaimed::Dropped => return,
             Unclaimed::Passes => {}
+        }
+        #[cfg(target_os = "android")]
+        {
+            if matches!(
+                event,
+                WindowEvent::Focused(false) | WindowEvent::Destroyed | WindowEvent::Resized(_)
+            ) {
+                self.touch_ui.drag = None;
+                self.cancel_touch();
+                for release in self.touch_pointer.cancel() {
+                    self.handle_window_event_as(event_loop, id, release, origin);
+                }
+                crate::android::clear_controller();
+            }
+            if let WindowEvent::Touch(touch) = event {
+                self.touch_event(event_loop, id, touch, origin);
+                return;
+            }
         }
         follow_keymap(&mut event);
         // MacosUtil.setCtrlClickEmulatesRightClick: Control + left click is a right click.
@@ -361,7 +381,25 @@ impl Game<'_> {
 
 impl ApplicationHandler for Game<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        horizon_client_render::android_lifecycle::STATE.set_surface(true);
         if self.window.is_some() {
+            #[cfg(target_os = "android")]
+            {
+                if let Some(renderer) = &mut self.renderer {
+                    if let Err(e) = renderer.recreate_surface() {
+                        self.error = Some(e);
+                        event_loop.exit();
+                        return;
+                    }
+                }
+                self.previous = Instant::now();
+                self.audio.sync_android_lifecycle();
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+                log::info!("Stratum lifecycle: game surface restored");
+            }
             return;
         }
         debug_keys::warm_debug_cpu();
@@ -421,7 +459,40 @@ impl ApplicationHandler for Game<'_> {
         self.apply_settings();
         self.previous = Instant::now();
     }
+    #[cfg(target_os = "android")]
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        horizon_client_render::android_lifecycle::STATE.set_surface(false);
+        horizon_client_render::android_lifecycle::STATE.set_focused(false);
+        self.audio.sync_android_lifecycle();
+        self.handle_window_event_inner(event_loop, WindowEvent::Focused(false));
+        self.cancel_touch();
+        if self.player.is_some() && self.title.is_none() && self.screen == Screen::Playing {
+            self.set_screen(Screen::Paused);
+        }
+        if let Some(server) = &self.integrated {
+            server.set_paused(self.pauses_game());
+        }
+        if let Some(renderer) = &mut self.renderer {
+            renderer.suspend_surface();
+        }
+        event_loop.set_control_flow(ControlFlow::Wait);
+    }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        #[cfg(target_os = "android")]
+        {
+            if let WindowEvent::Focused(focused) = &event {
+                horizon_client_render::android_lifecycle::STATE.set_focused(*focused);
+                self.audio.sync_android_lifecycle();
+            }
+            if !horizon_client_render::android_lifecycle::STATE.has_surface()
+                && matches!(
+                    event,
+                    WindowEvent::RedrawRequested | WindowEvent::Resized(_)
+                )
+            {
+                return;
+            }
+        }
         let key = if self.window.as_ref().is_some_and(|w| w.id() == id)
             && !self.scripted_run()
             && !self.unclaimed_window
@@ -437,15 +508,20 @@ impl ApplicationHandler for Game<'_> {
         };
         self.handle_window_event(event_loop, id, event, input_trace::InputOrigin::User);
         if let Some((event, modifiers)) = key {
+            #[cfg(not(target_os = "android"))]
             use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
             let name = match event.physical_key {
                 PhysicalKey::Code(code) => horizon_client::keybinds::key_name(code),
                 PhysicalKey::Unidentified(_) => None,
             };
-            let layout_key = horizon_client::keybinds::layout_key_name(
-                event.physical_key,
-                &event.key_without_modifiers(),
-            );
+            #[cfg(not(target_os = "android"))]
+            let layout = event.key_without_modifiers();
+            // Android winit has no unmodified-layout-key API. Its logical key is
+            // the available layout evidence; layout_key_name rejects symbols it
+            // cannot map instead of inventing a desktop keyboard layout.
+            #[cfg(target_os = "android")]
+            let layout = event.logical_key.clone();
+            let layout_key = horizon_client::keybinds::layout_key_name(event.physical_key, &layout);
             let raw_code = horizon_client::keybinds::raw_key_code(event.physical_key);
             let action = match (event.state, event.repeat) {
                 (winit::event::ElementState::Released, _) => mod_api::KeyAction::Release,
@@ -487,6 +563,11 @@ impl ApplicationHandler for Game<'_> {
         }
     }
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        if !horizon_client_render::android_lifecycle::STATE.has_surface() {
+            event_loop.set_control_flow(ControlFlow::Wait);
+            return;
+        }
         // Every event-loop pass, drawn or not: a window that stops redrawing (a lost
         // device, an occluded window) must still end after a server crash.
         self.exit_after_server_crash();

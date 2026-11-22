@@ -136,7 +136,12 @@ impl Game<'_> {
                     &[KeyCode::ShiftLeft, KeyCode::ControlLeft][slot],
                     Source::Mod,
                 );
-            if !held && !pad {
+            let touch = self.touch_controls.held(if slot == 0 {
+                horizon_client_input::touch_controls::Action::Sneak
+            } else {
+                horizon_client_input::touch_controls::Action::Sprint
+            });
+            if !held && !pad && !touch {
                 self.toggles.0[slot].set_down(false, needs_toggle);
                 self.sync_toggle(slot);
             }
@@ -144,7 +149,20 @@ impl Game<'_> {
     }
     /// Whether the other device still holds the sneak or sprint mapping `source` released.
     pub(super) fn toggle_held_elsewhere(&self, slot: usize, key: KeyCode, source: Source) -> bool {
+        if source != Source::Touch
+            && self.touch_controls.held(if slot == SNEAK {
+                horizon_client_input::touch_controls::Action::Sneak
+            } else {
+                horizon_client_input::touch_controls::Action::Sprint
+            })
+        {
+            return true;
+        }
         match source {
+            Source::Touch => {
+                self.toggle_held_elsewhere(slot, key, Source::Pad)
+                    || self.toggle_held_elsewhere(slot, key, Source::Keyboard)
+            }
             // A pad's toggle-sneak isn't holding it: it has no release that would end it.
             Source::Keyboard => {
                 !(slot == SNEAK && self.settings.controller.toggle_sneak)
@@ -232,7 +250,9 @@ impl Game<'_> {
         // behind a screen (KeyboardHandler.keyPress).
         let toggle = match key {
             KeyCode::ShiftLeft => Some((0, self.settings.toggle_crouch)),
-            KeyCode::ControlLeft => Some((1, self.settings.toggle_sprint)),
+            KeyCode::ControlLeft => {
+                Some((1, self.settings.toggle_sprint && source != Source::Touch))
+            }
             _ => None,
         };
         if let Some((slot, option)) = toggle {
@@ -381,7 +401,19 @@ impl Game<'_> {
             MouseButton::Right => "key.use",
             _ => return false,
         };
+        if source != Source::Touch
+            && self.touch_controls.held(if button == MouseButton::Left {
+                horizon_client_input::touch_controls::Action::Attack
+            } else {
+                horizon_client_input::touch_controls::Action::Use
+            })
+        {
+            return true;
+        }
         match source {
+            Source::Touch => {
+                self.mouse_mapping_held_elsewhere(button, Source::Pad) || self.input_holds(mapping)
+            }
             Source::Keyboard | Source::Agent | Source::Mod => self.input_holds(mapping),
             Source::Pad => {
                 let keys = &self.settings.keys;

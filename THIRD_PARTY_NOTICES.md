@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Stratum's vendored winit
+
+`third_party/winit` is winit 0.30.13, revision
+`e9809ef54b18499bb4f2cac945719ecc2a61061b`, with a Stratum Android input hook.
+Copyright remains with the winit contributors. Its Apache-2.0 license is preserved
+in `third_party/winit/LICENSE` and `LICENSES/Winit-Apache-2.0.txt` (also bundled in
+development APKs). Modification details are in `third_party/winit/STRATUM.md`.
+
 ## cap-std / cap-fs-ext
 
 `horizon-client` directly uses `cap-std` and `cap-fs-ext` 3.4.6 from
@@ -452,3 +460,29 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FO
 OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+
+## Stratum bundled shader sample
+
+Stratum's Android development host provisions the unmodified Golden Hour example
+from the pinned Horizon source (`crates/horizon-shader-api/packs/golden_hour`).
+Its manifest credits Horizon and declares MIT; its manifest and README are
+preserved beside the shader files. The MIT license is included in the APK's
+licenses directory. The new touch control glyphs are original geometric drawings;
+no Mojang/Bedrock touch textures are bundled.
+
+
+## Stratum touch assets and Android audio refinements
+
+The Bedrock touch downloader in `crates/horizon-client/src/bedrock_touch.rs` and
+its pinned manifest are adapted from Starling revision
+`5432370d573642041585c69b40fb045b27133488`, MIT, copyright (c) 2026 Ludovic Marie
+and the Horizon contributors. See `LICENSES/Starling-MIT.txt`. Changes add Stratum's
+settings glyph and preserve sprint sprites. It downloads the textures from Mojang's
+bedrock-samples revision `15701fa9c13923f12662984c32c124327e40e3d3`, verifies git blob
+hashes and keeps Mojang's exact terms beside the private resource files. Mojang
+textures are not committed or bundled in the APK. Those assets remain subject to
+Mojang's terms, not the Starling MIT license.
+
+CPAL 0.16.0 is vendored with a narrow Android low-latency output patch. See
+`third_party/cpal/STRATUM.md` and `LICENSES/CPAL-Apache-2.0.txt`.

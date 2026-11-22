@@ -7,7 +7,12 @@ pub mod enabled;
 pub mod game_identity;
 #[cfg(all(
     feature = "runtime-process",
-    any(target_os = "linux", target_os = "macos", windows)
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        windows
+    )
 ))]
 pub mod holder;
 pub mod icon;
@@ -20,7 +25,12 @@ pub mod junction;
 pub mod layouts;
 #[cfg(all(
     feature = "runtime-process",
-    any(target_os = "linux", target_os = "macos", windows)
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        windows
+    )
 ))]
 pub mod local_control;
 #[cfg(feature = "runtime-process")]

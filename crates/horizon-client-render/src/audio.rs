@@ -530,6 +530,24 @@ pub struct CapturedSound {
 }
 
 impl Audio {
+    /// Android backgrounding pauses the output, including music and UI, without
+    /// changing the in-game pause state or advancing the mixer playheads.
+    #[cfg(target_os = "android")]
+    pub fn sync_android_lifecycle(&self) {
+        #[cfg(feature = "audio")]
+        if let Some(stream) = &self._stream {
+            let active = crate::android_lifecycle::STATE.audible();
+            let result = if active {
+                stream.play().map_err(|e| e.to_string())
+            } else {
+                stream.pause().map_err(|e| e.to_string())
+            };
+            if let Err(e) = result {
+                log::warn!("Android audio lifecycle: {e}");
+            }
+            log::info!("Stratum lifecycle: audio active={active}");
+        }
+    }
     /// Plays a mod's audio (`Host::push_voice`): mono samples, -1 to 1, at `rate`, behind what
     /// `source` of `mod_id` already has waiting; `at` places them for distance and direction.
     pub fn push_voice(
@@ -1293,7 +1311,12 @@ fn open_device(
         }
         Err(e) => return Err(e),
     };
+    #[cfg(not(target_os = "android"))]
     stream.play()?;
+    #[cfg(target_os = "android")]
+    if crate::android_lifecycle::STATE.audible() {
+        stream.play()?;
+    }
     if let Ok(mut m) = mixer.lock() {
         m.device_name = device.name().unwrap_or_default();
         m.lost = None;
@@ -1440,6 +1463,12 @@ fn build_stream<T: cpal::SizedSample + cpal::FromSample<f32>>(
     let stream = device.build_output_stream(
         stream_config,
         move |data: &mut [T], _| {
+            // Also silence any in-flight callback if pausing the device fails.
+            #[cfg(target_os = "android")]
+            if !crate::android_lifecycle::STATE.audible() {
+                data.fill(T::from_sample(0.0));
+                return;
+            }
             scratch.resize(data.len(), 0.0f32);
             if let Ok(mut m) = mixer.lock() {
                 mix(&mut m, &mut scratch, channels, rate);

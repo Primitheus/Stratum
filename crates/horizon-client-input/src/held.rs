@@ -13,6 +13,7 @@ pub enum Source {
     /// The keyboard and mouse.
     Keyboard,
     Pad,
+    Touch,
     /// `horizon-ctl`'s `key` and `mouse` and the agent commands that walk and click.
     Agent,
     /// A mod's `set_mapping_down`.
@@ -24,6 +25,7 @@ impl Source {
         match self {
             Source::Keyboard => 1,
             Source::Pad => 2,
+            Source::Touch => 16,
             Source::Agent => 4,
             Source::Mod => 8,
         }

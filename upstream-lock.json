@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-11-19",
+  "horizon": {
+    "url": "https://github.com/horizon-rust/horizon.git",
+    "revision": "07296d9eff2663e6014420b35d5d2147d7d92d8b",
+    "license": "LGPL-3.0-or-later",
+    "role": "Game base; preserve upstream history"
+  },
+  "starling": {
+    "url": "https://github.com/starling-client/starling.git",
+    "revision": "5432370d573642041585c69b40fb045b27133488",
+    "license": "MIT",
+    "role": "Reference for selective Android integration, not the game base"
+  },
+  "android_reference": {
+    "abi": "arm64-v8a",
+    "rust_target": "aarch64-linux-android",
+    "rust_minimum": "1.95.0",
+    "python_minimum": "3.11.0",
+    "jdk_major": 25,
+    "platform": 36,
+    "build_tools": "35.0.0",
+    "ndk": "28.2.13676358",
+    "min_sdk": 26,
+    "target_sdk": 35,
+    "status": "Reference requirements; Stratum build not yet validated"
+  }
+}

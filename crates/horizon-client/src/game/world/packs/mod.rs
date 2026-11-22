@@ -64,7 +64,10 @@ pub fn startup_root(
     let mut enabled = packs::enabled(&all, selected);
     enabled.extend_from_slice(server);
     let base = super::mods::content_root(vanilla, mod_sources)?;
-    let source = packs::resources(base.source().clone(), &enabled)?;
+    let source = base.source().clone();
+    #[cfg(target_os = "android")]
+    let source = crate::bedrock_touch::resources(vanilla, source);
+    let source = packs::resources(source, &enabled)?;
     Ok(horizon_assets::resource_source::ResourceRoot::new(
         base.prepared().to_path_buf(),
         cache_dir(),

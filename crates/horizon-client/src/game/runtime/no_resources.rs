@@ -42,7 +42,7 @@ pub(super) fn show(looked_in: &std::path::Path, settings: &Settings) -> Result<(
         error: None,
     };
 
-    EventLoop::new()?.run_app(&mut app)?;
+    crate::run_window_app(crate::window_event_loop()?, &mut app)?;
     app.error.map_or(Ok(()), Err)
 }
 
@@ -100,7 +100,22 @@ impl Missing {
 
 impl ApplicationHandler for Missing {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        horizon_client_render::android_lifecycle::STATE.set_surface(true);
         if self.window.is_some() {
+            #[cfg(target_os = "android")]
+            {
+                if let Some(r) = &mut self.renderer {
+                    if let Err(e) = r.recreate_surface() {
+                        self.error = Some(e);
+                        event_loop.exit();
+                        return;
+                    }
+                }
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+            }
             return;
         }
         let attributes =
@@ -135,7 +150,26 @@ impl ApplicationHandler for Missing {
         }
     }
 
+    #[cfg(target_os = "android")]
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        horizon_client_render::android_lifecycle::STATE.set_surface(false);
+        horizon_client_render::android_lifecycle::STATE.set_focused(false);
+        if let Some(r) = &mut self.renderer {
+            r.suspend_surface();
+        }
+        event_loop.set_control_flow(ControlFlow::Wait);
+    }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        #[cfg(target_os = "android")]
+        if !horizon_client_render::android_lifecycle::STATE.has_surface()
+            && matches!(
+                event,
+                WindowEvent::RedrawRequested | WindowEvent::Resized(_)
+            )
+        {
+            return;
+        }
+
         let Some(window) = self.window.clone().filter(|w| w.id() == id) else {
             return;
         };
@@ -178,3 +212,5 @@ impl ApplicationHandler for Missing {
         ));
     }
 }
+
+impl horizon_client_input::touch::RawTouch for Missing {}

@@ -3,7 +3,7 @@ use super::Error;
 use cap_std::fs::Dir;
 
 pub(super) fn local(directory: &Dir) -> Result<(), Error> {
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
     {
         use std::{mem::MaybeUninit, os::fd::AsRawFd};
         let mut status = MaybeUninit::<libc::statfs>::zeroed();
@@ -13,7 +13,7 @@ pub(super) fn local(directory: &Dir) -> Result<(), Error> {
         }
         // SAFETY: a successful fstatfs initialized the result.
         let status = unsafe { status.assume_init() };
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         // ext*, tmpfs, overlayfs, XFS, Btrfs, ZFS, ramfs, F2FS, FAT and exFAT. Unknown
         // implementations (including NFS, SMB and FUSE) must not silently inherit trust.
         let supported = supported_linux(status.f_type as u64);
@@ -73,14 +73,19 @@ pub(super) fn local(directory: &Dir) -> Result<(), Error> {
             Err(Error::UnsupportedFilesystem)
         }
     }
-    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        windows
+    )))]
     {
         let _ = directory;
         Err(Error::UnsupportedFilesystem)
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn supported_linux(kind: u64) -> bool {
     matches!(
         kind,

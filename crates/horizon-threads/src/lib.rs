@@ -9,6 +9,7 @@ pub mod allocator_stats;
 #[cfg(target_os = "windows")]
 pub mod boot_paint;
 pub mod callgrind;
+pub mod file_lock;
 pub mod heap_census;
 #[cfg(target_os = "linux")]
 pub mod heap_sample;

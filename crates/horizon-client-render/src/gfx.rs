@@ -4743,6 +4743,19 @@ impl Renderer {
             .unwrap_or_else(std::sync::PoisonError::into_inner) =
             self.surface.take().and_then(|s| Arc::try_unwrap(s).ok());
     }
+    /// Android's native window is about to be destroyed. Unlike renderer
+    /// replacement, this must drop the spare surface too: it cannot be reused.
+    #[cfg(target_os = "android")]
+    pub fn suspend_surface(&mut self) {
+        self.frame_gen.stop();
+        self.queue.wait();
+        self.surface = None;
+        *self
+            .spare_surface
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+        log::info!("Stratum lifecycle: surface released");
+    }
     /// Reattach a window after surface loss or a failed renderer replacement.
     pub fn recreate_surface(&mut self) -> Result<()> {
         self.queue.wait();
@@ -7048,6 +7061,10 @@ impl Renderer {
     }
     #[horizon_mod_api_macros::replaceable]
     pub fn render(&mut self, frame: &Frame) -> Result<bool> {
+        #[cfg(target_os = "android")]
+        if !crate::android_lifecycle::STATE.has_surface() {
+            return Ok(false);
+        }
         // A lost device cannot accept uploads either. Leave recovery to the
         // owner instead of submitting atlas patches to the invalid device.
         if self.device_lost() {

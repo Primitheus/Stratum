@@ -231,7 +231,7 @@ pub fn open_latest(dir: &Path) -> io::Result<Option<Latest>> {
         .create(true)
         .truncate(false)
         .open(dir.join(".lock"))?;
-    match lock.try_lock() {
+    match horizon_threads::file_lock::try_exclusive(&lock) {
         Ok(()) => {}
         Err(fs::TryLockError::WouldBlock) => return Ok(None),
         Err(fs::TryLockError::Error(e)) => return Err(e),

@@ -177,7 +177,7 @@ fn check_directory(directory: &Dir, private: bool) -> io::Result<()> {
     Ok(())
 }
 fn peer(stream: &Stream) -> io::Result<()> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     let uid = rustix::net::sockopt::socket_peercred(stream)?.uid.as_raw();
     #[cfg(target_os = "macos")]
     let uid = {

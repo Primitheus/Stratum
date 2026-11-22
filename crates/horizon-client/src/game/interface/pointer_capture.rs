@@ -23,7 +23,9 @@ impl Game<'_> {
     pub(super) fn apply_mouse_look(&mut self) {
         let mut look = self.look_options();
         let time = self.started.elapsed().as_secs_f64();
-        let pointer = self.captured || self.agent_pointer;
+        let pointer = self.captured
+            || self.agent_pointer
+            || (cfg!(target_os = "android") && self.touch_playing);
         let grabbed = pointer
             && self.screen == Screen::Playing
             && (self.player.is_some() || self.studio.flying());
