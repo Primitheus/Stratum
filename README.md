@@ -10,8 +10,6 @@ and rendering to Android with controls designed for touchscreens and gamepads.
 - **Customizable HUD** — adjustable button placement, sizing and visibility, with joystick and D-pad layouts.
 - **Controller support** — physical gamepad input for gameplay and menus.
 - **Shaders** — Horizon shader support, with compatibility and performance depending on the pack and hardware.
-- **Persistent worlds** — local world creation, saving and loading.
-- **Android audio** — low-latency audio output and background playback handling.
 
 Stratum is under active development. Compatibility varies across Android devices
 and shader packs.
